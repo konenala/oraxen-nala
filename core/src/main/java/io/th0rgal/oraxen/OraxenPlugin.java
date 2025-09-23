@@ -28,7 +28,6 @@ import io.th0rgal.oraxen.utils.breaker.PacketEventsBreakerSystem;
 import io.th0rgal.oraxen.utils.breaker.ProtocolLibBreakerSystem;
 import io.th0rgal.oraxen.utils.customarmor.CustomArmorListener;
 import io.th0rgal.oraxen.utils.inventories.InvManager;
-import io.th0rgal.oraxen.utils.scheduler.OraxenScheduler;
 import io.th0rgal.protectionlib.ProtectionLib;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import org.bstats.bukkit.Metrics;
@@ -144,7 +143,7 @@ public class OraxenPlugin extends JavaPlugin {
     private void postLoading() {
         new Metrics(this, 5371);
         new LU().l();
-        OraxenScheduler.runTask(() -> Bukkit.getPluginManager().callEvent(new OraxenItemsLoadedEvent()));
+        Bukkit.getScheduler().runTask(this, () -> Bukkit.getPluginManager().callEvent(new OraxenItemsLoadedEvent()));
     }
 
     @Override
