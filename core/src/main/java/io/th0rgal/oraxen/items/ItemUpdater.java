@@ -9,6 +9,7 @@ import io.th0rgal.oraxen.nms.NMSHandlers;
 import io.th0rgal.oraxen.utils.AdventureUtils;
 import io.th0rgal.oraxen.utils.ItemUtils;
 import io.th0rgal.oraxen.utils.VersionUtil;
+import io.th0rgal.oraxen.utils.scheduler.OraxenScheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -129,7 +130,7 @@ public class ItemUpdater implements Listener {
 
         PlayerInventory inventory = event.getPlayer().getInventory();
         if (inventory.firstEmpty() == -1) event.setItem(event.getItem().add(usingConvertsTo.getAmount()));
-        else Bukkit.getScheduler().runTask(OraxenPlugin.get(), () -> {
+        else OraxenScheduler.runTask(() -> {
             for (int i = 0; i < inventory.getSize(); i++) {
                 ItemStack oldItem = inventory.getItem(i);
                 ItemStack newItem = ItemUpdater.updateItem(oldItem);

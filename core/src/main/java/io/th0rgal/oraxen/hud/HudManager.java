@@ -4,6 +4,7 @@ import com.jeff_media.morepersistentdatatypes.DataType;
 import io.th0rgal.oraxen.OraxenPlugin;
 import io.th0rgal.oraxen.config.ConfigsManager;
 import io.th0rgal.oraxen.utils.AdventureUtils;
+import io.th0rgal.oraxen.utils.scheduler.OraxenScheduler;
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -116,7 +117,7 @@ public class HudManager {
         if (huds.isEmpty()) return;
 
         hudTask = new HudTask();
-        hudTask.runTaskTimer(OraxenPlugin.get(), 0, hudUpdateTime);
+        OraxenScheduler.runTaskTimerAsynchronously(hudTask, 0, hudUpdateTime);
         hudTaskEnabled = true;
     }
 

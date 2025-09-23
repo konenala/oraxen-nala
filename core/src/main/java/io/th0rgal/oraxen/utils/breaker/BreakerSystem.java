@@ -17,6 +17,7 @@ import io.th0rgal.oraxen.utils.PotionUtils;
 import io.th0rgal.oraxen.utils.blocksounds.BlockSounds;
 import io.th0rgal.oraxen.utils.drops.Drop;
 import io.th0rgal.oraxen.utils.wrappers.EnchantmentWrapper;
+import io.th0rgal.oraxen.utils.scheduler.OraxenScheduler;
 import io.th0rgal.protectionlib.ProtectionLib;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -94,7 +95,7 @@ public abstract class BreakerSystem {
                 drop = stringMechanic.getDrop() != null ? stringMechanic.getDrop() : Drop.emptyDrop();
             else drop = null;
 
-            Bukkit.getScheduler().runTask(OraxenPlugin.get(), () ->
+            OraxenScheduler.runTask(() ->
                 player.addPotionEffect(new PotionEffect(PotionUtils.getEffectType("mining_fatigue"),
                     (int) (period * 11),
                     Integer.MAX_VALUE,
@@ -108,7 +109,7 @@ public abstract class BreakerSystem {
             // However still needs to be called for plugin support.
             final PlayerInteractEvent playerInteractEvent =
                 new PlayerInteractEvent(player, Action.LEFT_CLICK_BLOCK, player.getInventory().getItemInMainHand(), block, blockFace, EquipmentSlot.HAND);
-            scheduler.runTask(OraxenPlugin.get(), () -> Bukkit.getPluginManager().callEvent(playerInteractEvent));
+            OraxenScheduler.runTask(() -> Bukkit.getPluginManager().callEvent(playerInteractEvent));
 
             breakerPerLocation.put(location, scheduler);
 
@@ -123,13 +124,12 @@ public abstract class BreakerSystem {
             final HardnessModifier modifier = triggeredModifier;
             startBlockHitSound(location);
 
-            scheduler.runTaskTimer(OraxenPlugin.get(), new Consumer<>() {
+            BukkitTask breakerTask = OraxenScheduler.runTaskTimer(location, new Runnable() {
                 int value = 0;
 
                 @Override
-                public void accept(final BukkitTask bukkitTask) {
+                public void run() {
                     if (!breakerPerLocation.containsKey(location)) {
-                        bukkitTask.cancel();
                         stopBlockHitSound(location);
                         return;
                     }
@@ -152,7 +152,7 @@ public abstract class BreakerSystem {
                         modifier.breakBlock(player, block, item);
                     } else stopBlockHitSound(location);
 
-                    scheduler.runTask(OraxenPlugin.get(), () ->
+                    OraxenScheduler.runTask(() ->
                         player.removePotionEffect(PotionUtils.getEffectType("mining_fatigue")));
 
                     stopBlockBreaker(location);
@@ -164,11 +164,10 @@ public abstract class BreakerSystem {
                             else sendBlockBreak(viewer, location, value);
                         }
                     }
-                    bukkitTask.cancel();
                 }
             }, period, period);
         } else {
-            Bukkit.getScheduler().runTask(OraxenPlugin.get(), () -> {
+            OraxenScheduler.runTask(location, () -> {
                 player.removePotionEffect(PotionUtils.getEffectType("mining_fatigue"));
                 if (!ProtectionLib.canBreak(player, location))
                     player.sendBlockChange(location, block.getBlockData());
@@ -187,7 +186,7 @@ public abstract class BreakerSystem {
         if (scheduler == null) return List.of(block.getLocation());
 
         AtomicReference<Entity> furnitureBaseEntity = new AtomicReference<>();
-        scheduler.runTask(OraxenPlugin.get(), () -> furnitureBaseEntity.set(furnitureMechanic != null ? furnitureMechanic.getBaseEntity(block) : null));
+        OraxenScheduler.runTask(block.getLocation(), () -> furnitureBaseEntity.set(furnitureMechanic != null ? furnitureMechanic.getBaseEntity(block) : null));
         return furnitureMechanic != null && furnitureBaseEntity.get() != null
                 ? furnitureMechanic.getLocations(FurnitureMechanic.getFurnitureYaw(furnitureBaseEntity.get()),
                 furnitureBaseEntity.get().getLocation(), furnitureMechanic.getBarriers())
@@ -203,14 +202,14 @@ public abstract class BreakerSystem {
                 NoteBlockMechanic mechanic = OraxenBlocks.getNoteBlockMechanic(block);
                 if (mechanic == null) return true;
                 OraxenNoteBlockDamageEvent event = new OraxenNoteBlockDamageEvent(mechanic, block, player);
-                scheduler.runTask(OraxenPlugin.get(), () -> Bukkit.getPluginManager().callEvent(event));
+                OraxenScheduler.runTask(block.getLocation(), () -> Bukkit.getPluginManager().callEvent(event));
                 return event.isCancelled();
             }
             case TRIPWIRE -> {
                 StringBlockMechanic mechanic = OraxenBlocks.getStringMechanic(block);
                 if (mechanic == null) return true;
                 OraxenStringBlockDamageEvent event = new OraxenStringBlockDamageEvent(mechanic, block, player);
-                scheduler.runTask(OraxenPlugin.get(), () -> Bukkit.getPluginManager().callEvent(event));
+                OraxenScheduler.runTask(block.getLocation(), () -> Bukkit.getPluginManager().callEvent(event));
                 return event.isCancelled();
             }
             case BARRIER -> {
@@ -221,7 +220,7 @@ public abstract class BreakerSystem {
                         Entity baseEntity = mechanic.getBaseEntity(block);
                         if (baseEntity == null) return true;
                         OraxenFurnitureDamageEvent event = new OraxenFurnitureDamageEvent(mechanic, baseEntity, player, block);
-                        scheduler.runTask(OraxenPlugin.get(), () -> Bukkit.getPluginManager().callEvent(event));
+                        OraxenScheduler.runTask(block.getLocation(), () -> Bukkit.getPluginManager().callEvent(event));
                         return event.isCancelled();
                     }).get();
                 } catch (Exception e) {
@@ -253,7 +252,7 @@ public abstract class BreakerSystem {
             return;
         }
 
-        breakerPlaySound.put(location, scheduler.runTaskTimer(OraxenPlugin.get(),
+        breakerPlaySound.put(location, OraxenScheduler.runTaskTimer(location,
                 () -> BlockHelpers.playCustomBlockSound(location, getHitSound(location.getBlock()), blockSounds.getHitVolume(), blockSounds.getHitPitch())
                 , 0L, 4L));
     }
