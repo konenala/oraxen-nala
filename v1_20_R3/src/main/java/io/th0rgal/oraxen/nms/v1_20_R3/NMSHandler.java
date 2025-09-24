@@ -57,12 +57,12 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
     @Override
     public boolean tripwireUpdatesDisabled() {
-        return VersionUtil.isPaperServer() && GlobalConfiguration.get().blockUpdates.disableTripwireUpdates;
+        return (VersionUtil.isPaperServer() || VersionUtil.isFoliaServer()) && GlobalConfiguration.get().blockUpdates.disableTripwireUpdates;
     }
 
     @Override
     public boolean noteblockUpdatesDisabled() {
-        return VersionUtil.isPaperServer() && GlobalConfiguration.get().blockUpdates.disableNoteblockUpdates;
+        return (VersionUtil.isPaperServer() || VersionUtil.isFoliaServer()) && GlobalConfiguration.get().blockUpdates.disableNoteblockUpdates;
     }
 
     @Override

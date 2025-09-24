@@ -36,7 +36,7 @@ public class ReloadCommand {
             Message.UPDATING_USER_ITEMS.log();
             for (Player player : Bukkit.getServer().getOnlinePlayers()) {
                 PlayerInventory inventory = player.getInventory();
-                Bukkit.getScheduler().runTaskAsynchronously(OraxenPlugin.get(), () -> {
+                io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTaskAsynchronously(OraxenPlugin.get(), () -> {
                     for (int i = 0; i < inventory.getSize(); i++) {
                         ItemStack oldItem = inventory.getItem(i);
                         ItemStack newItem = ItemUpdater.updateItem(oldItem);

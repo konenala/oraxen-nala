@@ -84,12 +84,14 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
 
         // mineableWith tag handling
         NamespacedKey tagKey = NamespacedKey.fromString("mineable_with_key", OraxenPlugin.get());
-        if (!VersionUtil.isPaperServer())
+        if (!VersionUtil.isPaperServer() && !VersionUtil.isFoliaServer())
             return;
         if (ChannelInitializeListenerHolder.hasListener(tagKey))
             return;
-        ChannelInitializeListenerHolder.addListener(tagKey, (channel -> channel.pipeline().addBefore("packet_handler",
-                tagKey.asString(), new ChannelDuplexHandler() {
+        
+        try {
+            ChannelInitializeListenerHolder.addListener(tagKey, (channel -> channel.pipeline().addBefore("packet_handler",
+                    tagKey.asString(), new ChannelDuplexHandler() {
                     Connection connection = (Connection) channel.pipeline().get("packet_handler");
                     TagNetworkSerialization.NetworkPayload payload = createPayload();
 
@@ -106,6 +108,12 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
                         ctx.write(msg, promise);
                     }
                 })));
+        } catch (Exception e) {
+            io.th0rgal.oraxen.utils.logs.Logs.logWarning("Failed to register network listener for Folia compatibility: " + e.getMessage());
+            if (io.th0rgal.oraxen.config.Settings.DEBUG.toBool()) {
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override

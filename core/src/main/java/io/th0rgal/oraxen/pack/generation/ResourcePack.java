@@ -162,7 +162,7 @@ public class ResourcePack {
 
         generateSound(output);
 
-        Bukkit.getScheduler().scheduleSyncDelayedTask(OraxenPlugin.get(), () -> {
+        io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTaskLater(OraxenPlugin.get(), () -> {
             OraxenPackGeneratedEvent event = new OraxenPackGeneratedEvent(output);
             EventUtils.callEvent(event);
             ZipUtils.writeZipFile(pack, event.getOutput());
@@ -175,7 +175,7 @@ public class ResourcePack {
                 OraxenPlugin.get().setUploadManager(uploadManager);
                 uploadManager.uploadAsyncAndSendToPlayers(OraxenPlugin.get().getResourcePack(), false, false);
             }
-        });
+        }, 1L);
     }
 
     private static Set<String> verifyPackFormatting(List<VirtualFile> output) {

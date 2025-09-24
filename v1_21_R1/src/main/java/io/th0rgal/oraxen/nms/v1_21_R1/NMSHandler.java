@@ -84,7 +84,7 @@ public class NMSHandler implements io.th0rgal.oraxen.nms.NMSHandler {
         // mineableWith tag handling
         NamespacedKey tagKey = NamespacedKey.fromString("mineable_with_key", OraxenPlugin.get());
 
-        if (!VersionUtil.isPaperServer())
+        if (!VersionUtil.isPaperServer() && !VersionUtil.isFoliaServer())
             return;
         if (ChannelInitializeListenerHolder.hasListener(tagKey))
             return;

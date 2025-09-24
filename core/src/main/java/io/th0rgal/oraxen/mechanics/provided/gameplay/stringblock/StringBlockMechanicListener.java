@@ -247,8 +247,8 @@ public class StringBlockMechanicListener implements Listener {
 
                 makePlayerPlaceBlock(player, event.getHand(), item, placedAgainst, event.getBlockFace(),
                         Bukkit.createBlockData(item.getType()));
-                Bukkit.getScheduler().runTaskLater(OraxenPlugin.get(),
-                        Runnable -> fixClientsideUpdate(placedAgainst.getLocation()), 1L);
+                io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTaskLater(OraxenPlugin.get(),
+                        () -> fixClientsideUpdate(placedAgainst.getLocation()), 1L);
             }
         }
 

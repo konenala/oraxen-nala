@@ -94,7 +94,7 @@ public abstract class BreakerSystem {
                 drop = stringMechanic.getDrop() != null ? stringMechanic.getDrop() : Drop.emptyDrop();
             else drop = null;
 
-            Bukkit.getScheduler().runTask(OraxenPlugin.get(), () ->
+            io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTask(OraxenPlugin.get(), () ->
                 player.addPotionEffect(new PotionEffect(PotionUtils.getEffectType("mining_fatigue"),
                     (int) (period * 11),
                     Integer.MAX_VALUE,
@@ -168,7 +168,7 @@ public abstract class BreakerSystem {
                 }
             }, period, period);
         } else {
-            Bukkit.getScheduler().runTask(OraxenPlugin.get(), () -> {
+            io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTask(OraxenPlugin.get(), () -> {
                 player.removePotionEffect(PotionUtils.getEffectType("mining_fatigue"));
                 if (!ProtectionLib.canBreak(player, location))
                     player.sendBlockChange(location, block.getBlockData());

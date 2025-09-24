@@ -143,7 +143,7 @@ public class OraxenPlugin extends JavaPlugin {
     private void postLoading() {
         new Metrics(this, 5371);
         new LU().l();
-        io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTask(() -> Bukkit.getPluginManager().callEvent(new OraxenItemsLoadedEvent()));
+        io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTask(this, () -> Bukkit.getPluginManager().callEvent(new OraxenItemsLoadedEvent()));
     }
 
     @Override

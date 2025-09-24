@@ -101,7 +101,7 @@ public class MechanicsManager {
             registerFactory("bedrockbreak", BedrockBreakMechanicFactory::new);
 
         // Use OraxenScheduler for Folia/Lophine compatibility
-        io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTask(() ->
+        io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTask(OraxenPlugin.get(), () ->
             Bukkit.getPluginManager().callEvent(new OraxenNativeMechanicsRegisteredEvent())
         );
     }
@@ -159,13 +159,27 @@ public class MechanicsManager {
     }
 
     public static void unregisterTasks() {
-        MECHANIC_TASKS.values().forEach(tasks -> tasks.forEach(Bukkit.getScheduler()::cancelTask));
+        MECHANIC_TASKS.values().forEach(tasks -> tasks.forEach(taskId -> {
+            try {
+                Bukkit.getScheduler().cancelTask(taskId);
+            } catch (UnsupportedOperationException e) {
+                // Lophine/Folia with disabled Bukkit scheduler - ignore
+                io.th0rgal.oraxen.utils.logs.Logs.logWarning("Bukkit scheduler disabled, cannot cancel task: " + e.getMessage());
+            }
+        }));
         MECHANIC_TASKS.clear();
     }
 
     public static void unregisterTasks(String mechanicId) {
         MECHANIC_TASKS.computeIfPresent(mechanicId, (key, value) -> {
-            value.forEach(Bukkit.getScheduler()::cancelTask);
+            value.forEach(taskId -> {
+                try {
+                    Bukkit.getScheduler().cancelTask(taskId);
+                } catch (UnsupportedOperationException e) {
+                    // Lophine/Folia with disabled Bukkit scheduler - ignore
+                    io.th0rgal.oraxen.utils.logs.Logs.logWarning("Bukkit scheduler disabled, cannot cancel task: " + e.getMessage());
+                }
+            });
             return Collections.emptyList();
         });
     }

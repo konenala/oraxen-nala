@@ -7,8 +7,6 @@ import org.bukkit.entity.Entity;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -19,60 +17,14 @@ import java.util.concurrent.TimeUnit;
 public class OraxenScheduler {
 
     private static final boolean IS_FOLIA;
-    private static Method globalRegionScheduler_run;
-    private static Method globalRegionScheduler_runDelayed;
-    private static Method globalRegionScheduler_runAtFixedRate;
-    private static Method regionScheduler_run;
-    private static Method regionScheduler_runDelayed;
-    private static Method regionScheduler_runAtFixedRate;
-    private static Method entityScheduler_run;
-    private static Method entityScheduler_runDelayed;
-    private static Method entityScheduler_runAtFixedRate;
-    private static Method asyncScheduler_runNow;
-    private static Method asyncScheduler_runDelayed;
-    private static Method asyncScheduler_runAtFixedRate;
-    private static Object globalRegionScheduler;
-    private static Object regionScheduler;
-    private static Object asyncScheduler;
 
     static {
         boolean isFolia = false;
         try {
             Class.forName("io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler");
             isFolia = true;
-
-            // Initialize Folia schedulers
-            Class<?> serverClass = Class.forName("org.bukkit.Bukkit");
-            globalRegionScheduler = serverClass.getMethod("getGlobalRegionScheduler").invoke(null);
-            regionScheduler = serverClass.getMethod("getRegionScheduler").invoke(null);
-            asyncScheduler = serverClass.getMethod("getAsyncScheduler").invoke(null);
-
-            // Get GlobalRegionScheduler methods
-            Class<?> globalSchedulerClass = Class.forName("io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler");
-            globalRegionScheduler_run = globalSchedulerClass.getMethod("run", Plugin.class, Runnable.class);
-            globalRegionScheduler_runDelayed = globalSchedulerClass.getMethod("runDelayed", Plugin.class, Runnable.class, long.class);
-            globalRegionScheduler_runAtFixedRate = globalSchedulerClass.getMethod("runAtFixedRate", Plugin.class, Runnable.class, long.class, long.class);
-
-            // Get RegionScheduler methods
-            Class<?> regionSchedulerClass = Class.forName("io.papermc.paper.threadedregions.scheduler.RegionScheduler");
-            regionScheduler_run = regionSchedulerClass.getMethod("run", Plugin.class, Location.class, Runnable.class);
-            regionScheduler_runDelayed = regionSchedulerClass.getMethod("runDelayed", Plugin.class, Location.class, Runnable.class, long.class);
-            regionScheduler_runAtFixedRate = regionSchedulerClass.getMethod("runAtFixedRate", Plugin.class, Location.class, Runnable.class, long.class, long.class);
-
-            // Get EntityScheduler methods
-            Class<?> entitySchedulerClass = Class.forName("io.papermc.paper.threadedregions.scheduler.EntityScheduler");
-            entityScheduler_run = entitySchedulerClass.getMethod("run", Plugin.class, Runnable.class, Runnable.class);
-            entityScheduler_runDelayed = entitySchedulerClass.getMethod("runDelayed", Plugin.class, Runnable.class, Runnable.class, long.class);
-            entityScheduler_runAtFixedRate = entitySchedulerClass.getMethod("runAtFixedRate", Plugin.class, Runnable.class, Runnable.class, long.class, long.class);
-
-            // Get AsyncScheduler methods
-            Class<?> asyncSchedulerClass = Class.forName("io.papermc.paper.threadedregions.scheduler.AsyncScheduler");
-            asyncScheduler_runNow = asyncSchedulerClass.getMethod("runNow", Plugin.class, Runnable.class);
-            asyncScheduler_runDelayed = asyncSchedulerClass.getMethod("runDelayed", Plugin.class, Runnable.class, long.class, TimeUnit.class);
-            asyncScheduler_runAtFixedRate = asyncSchedulerClass.getMethod("runAtFixedRate", Plugin.class, Runnable.class, long.class, long.class, TimeUnit.class);
-
-        } catch (Exception e) {
-            // Not Folia, use regular Bukkit scheduler
+        } catch (ClassNotFoundException e) {
+            // Not Folia
         }
         IS_FOLIA = isFolia;
     }
@@ -90,13 +42,17 @@ public class OraxenScheduler {
      */
     public static BukkitTask runTask(Plugin plugin, Runnable task) {
         if (IS_FOLIA) {
-            try {
-                return (BukkitTask) globalRegionScheduler_run.invoke(globalRegionScheduler, plugin, task);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException("Failed to run task on Folia", e);
-            }
+            // Folia returns ScheduledTask, we need to wrap it
+            return new FoliaTaskWrapper(Bukkit.getGlobalRegionScheduler().run(plugin, (scheduledTask) -> task.run()));
         } else {
-            return Bukkit.getScheduler().runTask(plugin, task);
+            try {
+                return Bukkit.getScheduler().runTask(plugin, task);
+            } catch (UnsupportedOperationException e) {
+                // Lophine/Folia with disabled Bukkit scheduler - run directly
+                io.th0rgal.oraxen.utils.logs.Logs.logWarning("Bukkit scheduler disabled, running task directly: " + e.getMessage());
+                task.run();
+                return null;
+            }
         }
     }
 
@@ -105,13 +61,16 @@ public class OraxenScheduler {
      */
     public static BukkitTask runTaskLater(Plugin plugin, Runnable task, long delay) {
         if (IS_FOLIA) {
-            try {
-                return (BukkitTask) globalRegionScheduler_runDelayed.invoke(globalRegionScheduler, plugin, task, delay);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException("Failed to run delayed task on Folia", e);
-            }
+            return new FoliaTaskWrapper(Bukkit.getGlobalRegionScheduler().runDelayed(plugin, (scheduledTask) -> task.run(), delay));
         } else {
-            return Bukkit.getScheduler().runTaskLater(plugin, task, delay);
+            try {
+                return Bukkit.getScheduler().runTaskLater(plugin, task, delay);
+            } catch (UnsupportedOperationException e) {
+                // Lophine/Folia with disabled Bukkit scheduler - run directly
+                io.th0rgal.oraxen.utils.logs.Logs.logWarning("Bukkit scheduler disabled, running delayed task directly: " + e.getMessage());
+                task.run();
+                return null;
+            }
         }
     }
 
@@ -120,13 +79,16 @@ public class OraxenScheduler {
      */
     public static BukkitTask runTaskTimer(Plugin plugin, Runnable task, long delay, long period) {
         if (IS_FOLIA) {
-            try {
-                return (BukkitTask) globalRegionScheduler_runAtFixedRate.invoke(globalRegionScheduler, plugin, task, delay, period);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException("Failed to run timer task on Folia", e);
-            }
+            return new FoliaTaskWrapper(Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, (scheduledTask) -> task.run(), delay, period));
         } else {
-            return Bukkit.getScheduler().runTaskTimer(plugin, task, delay, period);
+            try {
+                return Bukkit.getScheduler().runTaskTimer(plugin, task, delay, period);
+            } catch (UnsupportedOperationException e) {
+                // Lophine/Folia with disabled Bukkit scheduler - run directly
+                io.th0rgal.oraxen.utils.logs.Logs.logWarning("Bukkit scheduler disabled, running timer task directly: " + e.getMessage());
+                task.run();
+                return null;
+            }
         }
     }
 
@@ -135,11 +97,7 @@ public class OraxenScheduler {
      */
     public static BukkitTask runTask(Plugin plugin, Location location, Runnable task) {
         if (IS_FOLIA) {
-            try {
-                return (BukkitTask) regionScheduler_run.invoke(regionScheduler, plugin, location, task);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException("Failed to run location-based task on Folia", e);
-            }
+            return new FoliaTaskWrapper(Bukkit.getRegionScheduler().run(plugin, location, (scheduledTask) -> task.run()));
         } else {
             return Bukkit.getScheduler().runTask(plugin, task);
         }
@@ -150,11 +108,7 @@ public class OraxenScheduler {
      */
     public static BukkitTask runTaskLater(Plugin plugin, Location location, Runnable task, long delay) {
         if (IS_FOLIA) {
-            try {
-                return (BukkitTask) regionScheduler_runDelayed.invoke(regionScheduler, plugin, location, task, delay);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException("Failed to run delayed location-based task on Folia", e);
-            }
+            return new FoliaTaskWrapper(Bukkit.getRegionScheduler().runDelayed(plugin, location, (scheduledTask) -> task.run(), delay));
         } else {
             return Bukkit.getScheduler().runTaskLater(plugin, task, delay);
         }
@@ -165,11 +119,7 @@ public class OraxenScheduler {
      */
     public static BukkitTask runTaskTimer(Plugin plugin, Location location, Runnable task, long delay, long period) {
         if (IS_FOLIA) {
-            try {
-                return (BukkitTask) regionScheduler_runAtFixedRate.invoke(regionScheduler, plugin, location, task, delay, period);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException("Failed to run timer location-based task on Folia", e);
-            }
+            return new FoliaTaskWrapper(Bukkit.getRegionScheduler().runAtFixedRate(plugin, location, (scheduledTask) -> task.run(), delay, period));
         } else {
             return Bukkit.getScheduler().runTaskTimer(plugin, task, delay, period);
         }
@@ -180,12 +130,7 @@ public class OraxenScheduler {
      */
     public static BukkitTask runTask(Plugin plugin, Entity entity, Runnable task) {
         if (IS_FOLIA) {
-            try {
-                Object entityScheduler = entity.getClass().getMethod("getScheduler").invoke(entity);
-                return (BukkitTask) entityScheduler_run.invoke(entityScheduler, plugin, task, null);
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to run entity task on Folia", e);
-            }
+            return new FoliaTaskWrapper(entity.getScheduler().run(plugin, (scheduledTask) -> task.run(), null));
         } else {
             return Bukkit.getScheduler().runTask(plugin, task);
         }
@@ -196,12 +141,7 @@ public class OraxenScheduler {
      */
     public static BukkitTask runTaskLater(Plugin plugin, Entity entity, Runnable task, long delay) {
         if (IS_FOLIA) {
-            try {
-                Object entityScheduler = entity.getClass().getMethod("getScheduler").invoke(entity);
-                return (BukkitTask) entityScheduler_runDelayed.invoke(entityScheduler, plugin, task, null, delay);
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to run delayed entity task on Folia", e);
-            }
+            return new FoliaTaskWrapper(entity.getScheduler().runDelayed(plugin, (scheduledTask) -> task.run(), null, delay));
         } else {
             return Bukkit.getScheduler().runTaskLater(plugin, task, delay);
         }
@@ -212,110 +152,107 @@ public class OraxenScheduler {
      */
     public static BukkitTask runTaskTimer(Plugin plugin, Entity entity, Runnable task, long delay, long period) {
         if (IS_FOLIA) {
-            try {
-                Object entityScheduler = entity.getClass().getMethod("getScheduler").invoke(entity);
-                return (BukkitTask) entityScheduler_runAtFixedRate.invoke(entityScheduler, plugin, task, null, delay, period);
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to run timer entity task on Folia", e);
-            }
+            return new FoliaTaskWrapper(entity.getScheduler().runAtFixedRate(plugin, (scheduledTask) -> task.run(), null, delay, period));
         } else {
             return Bukkit.getScheduler().runTaskTimer(plugin, task, delay, period);
         }
     }
 
     /**
-     * Run an async task
+     * Run a task asynchronously
      */
     public static BukkitTask runTaskAsynchronously(Plugin plugin, Runnable task) {
         if (IS_FOLIA) {
-            try {
-                return (BukkitTask) asyncScheduler_runNow.invoke(asyncScheduler, plugin, task);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException("Failed to run async task on Folia", e);
-            }
+            return new FoliaTaskWrapper(Bukkit.getAsyncScheduler().runNow(plugin, (scheduledTask) -> task.run()));
         } else {
-            return Bukkit.getScheduler().runTaskAsynchronously(plugin, task);
+            try {
+                return Bukkit.getScheduler().runTaskAsynchronously(plugin, task);
+            } catch (UnsupportedOperationException e) {
+                // Lophine/Folia with disabled Bukkit scheduler - run directly
+                io.th0rgal.oraxen.utils.logs.Logs.logWarning("Bukkit scheduler disabled, running async task directly: " + e.getMessage());
+                task.run();
+                return null;
+            }
         }
     }
 
     /**
-     * Run an async task with delay
+     * Run a delayed task asynchronously
      */
     public static BukkitTask runTaskLaterAsynchronously(Plugin plugin, Runnable task, long delay) {
         if (IS_FOLIA) {
-            try {
-                return (BukkitTask) asyncScheduler_runDelayed.invoke(asyncScheduler, plugin, task, delay * 50L, TimeUnit.MILLISECONDS);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException("Failed to run delayed async task on Folia", e);
-            }
+            return new FoliaTaskWrapper(Bukkit.getAsyncScheduler().runDelayed(plugin, (scheduledTask) -> task.run(), delay, TimeUnit.MILLISECONDS));
         } else {
-            return Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, task, delay);
+            try {
+                return Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, task, delay);
+            } catch (UnsupportedOperationException e) {
+                // Lophine/Folia with disabled Bukkit scheduler - run directly
+                io.th0rgal.oraxen.utils.logs.Logs.logWarning("Bukkit scheduler disabled, running delayed async task directly: " + e.getMessage());
+                task.run();
+                return null;
+            }
         }
     }
 
     /**
-     * Run a repeating async task
+     * Run a repeating task asynchronously
      */
     public static BukkitTask runTaskTimerAsynchronously(Plugin plugin, Runnable task, long delay, long period) {
         if (IS_FOLIA) {
-            try {
-                return (BukkitTask) asyncScheduler_runAtFixedRate.invoke(asyncScheduler, plugin, task, delay * 50L, period * 50L, TimeUnit.MILLISECONDS);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException("Failed to run timer async task on Folia", e);
-            }
+            return new FoliaTaskWrapper(Bukkit.getAsyncScheduler().runAtFixedRate(plugin, (scheduledTask) -> task.run(), delay, period, TimeUnit.MILLISECONDS));
         } else {
-            return Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delay, period);
+            try {
+                return Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delay, period);
+            } catch (UnsupportedOperationException e) {
+                // Lophine/Folia with disabled Bukkit scheduler - run directly
+                io.th0rgal.oraxen.utils.logs.Logs.logWarning("Bukkit scheduler disabled, running timer async task directly: " + e.getMessage());
+                task.run();
+                return null;
+            }
         }
     }
 
     /**
-     * Convenience methods using OraxenPlugin instance
+     * Wrapper class to convert Folia's ScheduledTask to BukkitTask
      */
-    public static BukkitTask runTask(Runnable task) {
-        return runTask(OraxenPlugin.get(), task);
-    }
+    private static class FoliaTaskWrapper implements BukkitTask {
+        private final Object scheduledTask;
 
-    public static BukkitTask runTaskLater(Runnable task, long delay) {
-        return runTaskLater(OraxenPlugin.get(), task, delay);
-    }
+        public FoliaTaskWrapper(Object scheduledTask) {
+            this.scheduledTask = scheduledTask;
+        }
 
-    public static BukkitTask runTaskTimer(Runnable task, long delay, long period) {
-        return runTaskTimer(OraxenPlugin.get(), task, delay, period);
-    }
+        @Override
+        public int getTaskId() {
+            return scheduledTask.hashCode();
+        }
 
-    public static BukkitTask runTask(Location location, Runnable task) {
-        return runTask(OraxenPlugin.get(), location, task);
-    }
+        @Override
+        public Plugin getOwner() {
+            return OraxenPlugin.get();
+        }
 
-    public static BukkitTask runTaskLater(Location location, Runnable task, long delay) {
-        return runTaskLater(OraxenPlugin.get(), location, task, delay);
-    }
+        @Override
+        public boolean isSync() {
+            return false; // Folia tasks are generally async
+        }
 
-    public static BukkitTask runTaskTimer(Location location, Runnable task, long delay, long period) {
-        return runTaskTimer(OraxenPlugin.get(), location, task, delay, period);
-    }
+        @Override
+        public boolean isCancelled() {
+            try {
+                return (boolean) scheduledTask.getClass().getMethod("isCancelled").invoke(scheduledTask);
+            } catch (Exception e) {
+                return false;
+            }
+        }
 
-    public static BukkitTask runTask(Entity entity, Runnable task) {
-        return runTask(OraxenPlugin.get(), entity, task);
-    }
-
-    public static BukkitTask runTaskLater(Entity entity, Runnable task, long delay) {
-        return runTaskLater(OraxenPlugin.get(), entity, task, delay);
-    }
-
-    public static BukkitTask runTaskTimer(Entity entity, Runnable task, long delay, long period) {
-        return runTaskTimer(OraxenPlugin.get(), entity, task, delay, period);
-    }
-
-    public static BukkitTask runTaskAsynchronously(Runnable task) {
-        return runTaskAsynchronously(OraxenPlugin.get(), task);
-    }
-
-    public static BukkitTask runTaskLaterAsynchronously(Runnable task, long delay) {
-        return runTaskLaterAsynchronously(OraxenPlugin.get(), task, delay);
-    }
-
-    public static BukkitTask runTaskTimerAsynchronously(Runnable task, long delay, long period) {
-        return runTaskTimerAsynchronously(OraxenPlugin.get(), task, delay, period);
+        @Override
+        public void cancel() {
+            try {
+                scheduledTask.getClass().getMethod("cancel").invoke(scheduledTask);
+            } catch (Exception e) {
+                // Ignore
+            }
+        }
     }
 }
