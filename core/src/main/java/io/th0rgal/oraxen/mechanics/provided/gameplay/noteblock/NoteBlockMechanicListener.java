@@ -111,7 +111,7 @@ public class NoteBlockMechanicListener implements Listener {
             if (event.getEvent() != GameEvent.NOTE_BLOCK_PLAY) return;
             if (block.getType() != Material.NOTE_BLOCK) return;
             NoteBlock data = (NoteBlock) block.getBlockData().clone();
-            Bukkit.getScheduler().runTaskLater(OraxenPlugin.get(), () -> block.setBlockData(data, false), 1L);
+            io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTaskLater(OraxenPlugin.get(), () -> block.setBlockData(data, false), 1L);
         }
 
         public void updateAndCheck(Block block) {
@@ -403,39 +403,54 @@ public class NoteBlockMechanicListener implements Listener {
 
             @Override
             public boolean isTriggered(final Player player, final Block block, final ItemStack tool) {
-                if (block.getType() != Material.NOTE_BLOCK)
+                try {
+                    if (block.getType() != Material.NOTE_BLOCK)
+                        return false;
+
+                    NoteBlockMechanic mechanic = OraxenBlocks.getNoteBlockMechanic(block);
+                    if (mechanic == null) return false;
+
+                    if (mechanic.isDirectional() && !mechanic.getDirectional().isParentBlock())
+                        mechanic = mechanic.getDirectional().getParentMechanic();
+
+                    return mechanic.hasHardness();
+                } catch (NullPointerException e) {
+                    // Folia compatibility: World data might be null in multithreaded environment
                     return false;
-
-                NoteBlockMechanic mechanic = OraxenBlocks.getNoteBlockMechanic(block);
-                if (mechanic == null) return false;
-
-                if (mechanic.isDirectional() && !mechanic.getDirectional().isParentBlock())
-                    mechanic = mechanic.getDirectional().getParentMechanic();
-
-                return mechanic.hasHardness();
+                }
             }
 
             @Override
             public void breakBlock(final Player player, final Block block, final ItemStack tool) {
-                block.setType(Material.AIR);
+                try {
+                    block.setType(Material.AIR);
+                } catch (NullPointerException e) {
+                    // Folia compatibility: World data might be null in multithreaded environment
+                    // Skip block breaking if world data is not available
+                }
             }
 
             @Override
             public long getPeriod(final Player player, final Block block, final ItemStack tool) {
-                NoteBlockMechanic mechanic = OraxenBlocks.getNoteBlockMechanic(block);
-                if (mechanic == null) return 0;
-                if (mechanic.isDirectional() && !mechanic.getDirectional().isParentBlock())
-                    mechanic = mechanic.getDirectional().getParentMechanic();
+                try {
+                    NoteBlockMechanic mechanic = OraxenBlocks.getNoteBlockMechanic(block);
+                    if (mechanic == null) return 0;
+                    if (mechanic.isDirectional() && !mechanic.getDirectional().isParentBlock())
+                        mechanic = mechanic.getDirectional().getParentMechanic();
 
-                final long period = mechanic.getHardness();
-                double modifier = 1;
-                if (mechanic.getDrop().canDrop(tool)) {
-                    modifier *= 0.4;
-                    final int diff = mechanic.getDrop().getDiff(tool);
-                    if (diff >= 1)
-                        modifier *= Math.pow(0.9, diff);
+                    final long period = mechanic.getHardness();
+                    double modifier = 1;
+                    if (mechanic.getDrop().canDrop(tool)) {
+                        modifier *= 0.4;
+                        final int diff = mechanic.getDrop().getDiff(tool);
+                        if (diff >= 1)
+                            modifier *= Math.pow(0.9, diff);
+                    }
+                    return (long) (period * modifier);
+                } catch (NullPointerException e) {
+                    // Folia compatibility: World data might be null in multithreaded environment
+                    return 0;
                 }
-                return (long) (period * modifier);
             }
         };
     }

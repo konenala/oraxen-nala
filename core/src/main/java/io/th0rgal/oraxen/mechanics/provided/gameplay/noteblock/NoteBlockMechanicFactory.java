@@ -251,7 +251,13 @@ public class NoteBlockMechanicFactory extends MechanicFactory {
 
     public void registerFarmBlock() {
         if (farmBlock) return;
-        if (farmBlockTask != null) farmBlockTask.cancel();
+        if (farmBlockTask != null) {
+            try {
+                farmBlockTask.cancel();
+            } catch (IllegalStateException e) {
+                // Task not scheduled yet - ignore
+            }
+        }
 
 //        // Dont register if there is no farmblocks in configs
 //        List<String> farmblockList = new ArrayList<>();

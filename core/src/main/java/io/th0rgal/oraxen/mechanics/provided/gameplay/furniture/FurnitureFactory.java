@@ -74,8 +74,13 @@ public class FurnitureFactory extends MechanicFactory {
     public void registerEvolution() {
         if (evolvingFurnitures)
             return;
-        if (evolutionTask != null)
-            evolutionTask.cancel();
+        if (evolutionTask != null) {
+            try {
+                evolutionTask.cancel();
+            } catch (IllegalStateException e) {
+                // Task not scheduled yet - ignore
+            }
+        }
         evolutionTask = new EvolutionTask(this, evolutionCheckDelay);
         BukkitTask task = evolutionTask.runTaskTimer(OraxenPlugin.get(), 0, evolutionCheckDelay);
         MechanicsManager.registerTask(getMechanicID(), task);
@@ -83,8 +88,13 @@ public class FurnitureFactory extends MechanicFactory {
     }
 
     public static void unregisterEvolution() {
-        if (evolutionTask != null)
-            evolutionTask.cancel();
+        if (evolutionTask != null) {
+            try {
+                evolutionTask.cancel();
+            } catch (IllegalStateException e) {
+                // Task not scheduled yet - ignore
+            }
+        }
     }
 
     @Override

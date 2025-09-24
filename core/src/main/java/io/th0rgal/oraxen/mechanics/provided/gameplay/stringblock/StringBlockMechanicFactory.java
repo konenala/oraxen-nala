@@ -192,7 +192,13 @@ public class StringBlockMechanicFactory extends MechanicFactory {
 
     public void registerSaplingMechanic() {
         if (sapling) return;
-        if (saplingTask != null) saplingTask.cancel();
+        if (saplingTask != null) {
+            try {
+                saplingTask.cancel();
+            } catch (IllegalStateException e) {
+                // Task not scheduled yet - ignore
+            }
+        }
 
         // Disabled for abit as OraxenItems.getItems() here
         // Dont register if there is no sapling in configs

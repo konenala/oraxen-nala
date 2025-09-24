@@ -78,7 +78,7 @@ public class StringBlockMechanicListener implements Listener {
                     continue;
 
                 final BlockData data = changed.getBlockData().clone();
-                Bukkit.getScheduler().runTaskLater(OraxenPlugin.get(), () -> changed.setBlockData(data, false), 1L);
+                io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTaskLater(OraxenPlugin.get(), () -> changed.setBlockData(data, false), 1L);
             }
         }
 
@@ -120,8 +120,8 @@ public class StringBlockMechanicListener implements Listener {
                         block.setType(Material.AIR);
                     if (BlockHelpers.isReplaceable(blockAbove.getType()))
                         blockAbove.breakNaturally(true);
-                    Bukkit.getScheduler().runTaskLater(OraxenPlugin.get(),
-                            Runnable -> fixClientsideUpdate(block.getLocation()), 1);
+                    io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTaskLater(OraxenPlugin.get(),
+                            () -> fixClientsideUpdate(block.getLocation()), 1);
                 }
             }
         }
@@ -438,31 +438,46 @@ public class StringBlockMechanicListener implements Listener {
 
             @Override
             public boolean isTriggered(final Player player, final Block block, final ItemStack tool) {
-                if (block.getType() != Material.TRIPWIRE)
+                try {
+                    if (block.getType() != Material.TRIPWIRE)
+                        return false;
+                    final StringBlockMechanic tripwireMechanic = OraxenBlocks.getStringMechanic(block);
+                    return tripwireMechanic != null && tripwireMechanic.hasHardness();
+                } catch (NullPointerException e) {
+                    // Folia compatibility: World data might be null in multithreaded environment
                     return false;
-                final StringBlockMechanic tripwireMechanic = OraxenBlocks.getStringMechanic(block);
-                return tripwireMechanic != null && tripwireMechanic.hasHardness();
+                }
             }
 
             @Override
             public void breakBlock(final Player player, final Block block, final ItemStack tool) {
-                block.setType(Material.AIR);
+                try {
+                    block.setType(Material.AIR);
+                } catch (NullPointerException e) {
+                    // Folia compatibility: World data might be null in multithreaded environment
+                    // Skip block breaking if world data is not available
+                }
             }
 
             @Override
             public long getPeriod(final Player player, final Block block, final ItemStack tool) {
-                final StringBlockMechanic tripwireMechanic = OraxenBlocks.getStringMechanic(block);
-                if (tripwireMechanic == null)
+                try {
+                    final StringBlockMechanic tripwireMechanic = OraxenBlocks.getStringMechanic(block);
+                    if (tripwireMechanic == null)
+                        return 0;
+                    final long period = tripwireMechanic.getHardness();
+                    double modifier = 1;
+                    if (tripwireMechanic.getDrop().canDrop(tool)) {
+                        modifier *= 0.4;
+                        final int diff = tripwireMechanic.getDrop().getDiff(tool);
+                        if (diff >= 1)
+                            modifier *= Math.pow(0.9, diff);
+                    }
+                    return (long) (period * modifier);
+                } catch (NullPointerException e) {
+                    // Folia compatibility: World data might be null in multithreaded environment
                     return 0;
-                final long period = tripwireMechanic.getHardness();
-                double modifier = 1;
-                if (tripwireMechanic.getDrop().canDrop(tool)) {
-                    modifier *= 0.4;
-                    final int diff = tripwireMechanic.getDrop().getDiff(tool);
-                    if (diff >= 1)
-                        modifier *= Math.pow(0.9, diff);
                 }
-                return (long) (period * modifier);
             }
         };
     }

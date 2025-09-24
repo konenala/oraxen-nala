@@ -57,32 +57,46 @@ public class FurnitureListener implements Listener {
 
             @Override
             public boolean isTriggered(final Player player, final Block block, final ItemStack tool) {
-                FurnitureMechanic mechanic = OraxenFurniture.getFurnitureMechanic(block);
-
-                return mechanic != null && mechanic.hasHardness();
+                try {
+                    FurnitureMechanic mechanic = OraxenFurniture.getFurnitureMechanic(block);
+                    return mechanic != null && mechanic.hasHardness();
+                } catch (NullPointerException e) {
+                    // Folia compatibility: World data might be null in multithreaded environment
+                    return false;
+                }
             }
 
             @Override
             public void breakBlock(final Player player, final Block block, final ItemStack tool) {
-                block.setType(Material.AIR);
+                try {
+                    block.setType(Material.AIR);
+                } catch (NullPointerException e) {
+                    // Folia compatibility: World data might be null in multithreaded environment
+                    // Skip block breaking if world data is not available
+                }
             }
 
             @Override
             public long getPeriod(final Player player, final Block block, final ItemStack tool) {
-                FurnitureMechanic mechanic = OraxenFurniture.getFurnitureMechanic(block);
-                if (mechanic == null)
-                    return 0;
+                try {
+                    FurnitureMechanic mechanic = OraxenFurniture.getFurnitureMechanic(block);
+                    if (mechanic == null)
+                        return 0;
 
-                final long hardness = mechanic.getHardness();
-                double modifier = 1;
-                if (mechanic.getDrop().canDrop(tool)) {
-                    modifier *= 0.4;
-                    final int diff = mechanic.getDrop().getDiff(tool);
-                    if (diff >= 1)
-                        modifier *= Math.pow(0.9, diff);
+                    final long hardness = mechanic.getHardness();
+                    double modifier = 1;
+                    if (mechanic.getDrop().canDrop(tool)) {
+                        modifier *= 0.4;
+                        final int diff = mechanic.getDrop().getDiff(tool);
+                        if (diff >= 1)
+                            modifier *= Math.pow(0.9, diff);
+                    }
+                    long period = (long) (hardness * modifier);
+                    return period == 0 && mechanic.hasHardness() ? 1 : period;
+                } catch (NullPointerException e) {
+                    // Folia compatibility: World data might be null in multithreaded environment
+                    return 0;
                 }
-                long period = (long) (hardness * modifier);
-                return period == 0 && mechanic.hasHardness() ? 1 : period;
             }
         };
     }

@@ -17,33 +17,47 @@ public class BedrockBreakMechanicManager {
 
             @Override
             public boolean isTriggered(Player player, Block block, ItemStack tool) {
-                if (block.getType() != Material.BEDROCK) return false;
+                try {
+                    if (block.getType() != Material.BEDROCK) return false;
 
-                String itemID = OraxenItems.getIdByItem(tool);
-                boolean disableFirstLayer = !factory.isDisabledOnFirstLayer() || block.getY() > (block.getWorld().getMinHeight());
-                return !factory.isNotImplementedIn(itemID) && disableFirstLayer;
-
+                    String itemID = OraxenItems.getIdByItem(tool);
+                    boolean disableFirstLayer = !factory.isDisabledOnFirstLayer() || block.getY() > (block.getWorld().getMinHeight());
+                    return !factory.isNotImplementedIn(itemID) && disableFirstLayer;
+                } catch (NullPointerException e) {
+                    // Folia compatibility: World data might be null in multithreaded environment
+                    return false;
+                }
             }
 
             @Override
             public void breakBlock(Player player, Block block, ItemStack tool) {
-                String itemID = OraxenItems.getIdByItem(tool);
-                BedrockBreakMechanic mechanic = (BedrockBreakMechanic) factory.getMechanic(itemID);
-                World world = block.getWorld();
-                Location loc = block.getLocation();
+                try {
+                    String itemID = OraxenItems.getIdByItem(tool);
+                    BedrockBreakMechanic mechanic = (BedrockBreakMechanic) factory.getMechanic(itemID);
+                    World world = block.getWorld();
+                    Location loc = block.getLocation();
 
-                if (mechanic == null) return;
-                if (mechanic.bernouilliTest())
-                    world.dropItemNaturally(loc, new ItemStack(Material.BEDROCK));
+                    if (mechanic == null) return;
+                    if (mechanic.bernouilliTest())
+                        world.dropItemNaturally(loc, new ItemStack(Material.BEDROCK));
 
-                block.breakNaturally(true);
+                    block.breakNaturally(true);
+                } catch (NullPointerException e) {
+                    // Folia compatibility: World data might be null in multithreaded environment
+                    // Skip block breaking if world data is not available
+                }
             }
 
             @Override
             public long getPeriod(Player player, Block block, ItemStack tool) {
-                String itemID = OraxenItems.getIdByItem(tool);
-                BedrockBreakMechanic mechanic = (BedrockBreakMechanic) factory.getMechanic(itemID);
-                return mechanic.getPeriod();
+                try {
+                    String itemID = OraxenItems.getIdByItem(tool);
+                    BedrockBreakMechanic mechanic = (BedrockBreakMechanic) factory.getMechanic(itemID);
+                    return mechanic.getPeriod();
+                } catch (NullPointerException e) {
+                    // Folia compatibility: World data might be null in multithreaded environment
+                    return 0;
+                }
             }
         });
     }

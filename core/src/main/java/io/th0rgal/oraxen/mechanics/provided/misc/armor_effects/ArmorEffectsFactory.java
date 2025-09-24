@@ -28,7 +28,13 @@ public class ArmorEffectsFactory extends MechanicFactory {
     public Mechanic parse(ConfigurationSection configurationSection) {
         Mechanic mechanic = new ArmorEffectsMechanic(this, configurationSection);
         addToImplemented(mechanic);
-        if (armorEffectTask != null) armorEffectTask.cancel();
+        if (armorEffectTask != null) {
+            try {
+                armorEffectTask.cancel();
+            } catch (IllegalStateException e) {
+                // Task not scheduled yet - ignore
+            }
+        }
         armorEffectTask = new ArmorEffectsTask();
         BukkitTask task = armorEffectTask.runTaskTimer(OraxenPlugin.get(), 0, delay);
         MechanicsManager.registerTask(instance.getMechanicID(), task);
