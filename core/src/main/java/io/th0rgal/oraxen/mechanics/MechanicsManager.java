@@ -100,10 +100,10 @@ public class MechanicsManager {
         if (CompatibilitiesManager.hasPlugin("ProtocolLib"))
             registerFactory("bedrockbreak", BedrockBreakMechanicFactory::new);
 
-        Bukkit.getScheduler().callSyncMethod(OraxenPlugin.get(), () -> {
-            Bukkit.getPluginManager().callEvent(new OraxenNativeMechanicsRegisteredEvent());
-            return null;
-        });
+        // Use OraxenScheduler for Folia/Lophine compatibility
+        io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTask(() ->
+            Bukkit.getPluginManager().callEvent(new OraxenNativeMechanicsRegisteredEvent())
+        );
     }
 
     /**

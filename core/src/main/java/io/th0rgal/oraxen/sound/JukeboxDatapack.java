@@ -38,6 +38,8 @@ public class JukeboxDatapack extends OraxenDatapack {
             return;
         }
 
+        // 延遲初始化，避免在 Folia 上過早訪問世界
+        initializeDatapackFolder();
         datapackFolder.toPath().resolve("data/oraxen/jukebox_song").toFile().mkdirs();
         writeMCMeta();
         writeJukeboxSongs();

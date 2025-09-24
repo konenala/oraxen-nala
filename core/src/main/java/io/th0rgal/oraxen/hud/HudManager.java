@@ -116,7 +116,7 @@ public class HudManager {
         if (huds.isEmpty()) return;
 
         hudTask = new HudTask();
-        hudTask.runTaskTimer(OraxenPlugin.get(), 0, hudUpdateTime);
+        io.th0rgal.oraxen.utils.scheduler.OraxenScheduler.runTaskTimerAsynchronously(hudTask, 0, hudUpdateTime);
         hudTaskEnabled = true;
     }
 

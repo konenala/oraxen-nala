@@ -224,6 +224,9 @@ bukkit {
         default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.TRUE
     }
     libraries = oraxenLibs.bundles.libraries.bukkit.get().map { it.toString() }
+    
+    // Folia support
+    foliaSupported = true
 }
 
 if (spigotPluginPath != null) {

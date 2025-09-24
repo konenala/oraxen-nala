@@ -18,16 +18,51 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 public abstract class OraxenDatapack {
-    protected static final World defaultWorld = Bukkit.getWorlds().get(0);
-    protected final File datapackFolder;
+    
+    private static World getDefaultWorld() {
+        List<World> worlds = Bukkit.getWorlds();
+        if (worlds.isEmpty()) {
+            throw new IllegalStateException("No worlds available - server may not be fully initialized");
+        }
+        return worlds.get(0);
+    }
+    
+    protected static World getDefaultWorldSafe() {
+        int maxRetries = 20; // 增加重試次數
+        int retryDelay = 50; // 減少初始延遲
+        
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                return getDefaultWorld();
+            } catch (IllegalStateException e) {
+                if (i == maxRetries - 1) {
+                    // 最後一次嘗試失敗，拋出異常
+                    throw new RuntimeException("Failed to get world after " + maxRetries + " attempts. Server may not be fully initialized.", e);
+                }
+                
+                // 等待後重試
+                try {
+                    Thread.sleep(retryDelay);
+                    retryDelay = Math.min(retryDelay * 2, 1000); // 指數退避，最大1秒
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while waiting for world initialization", ie);
+                }
+            }
+        }
+        
+        throw new RuntimeException("Unexpected error in getDefaultWorldSafe");
+    }
+    
+    protected File datapackFolder;
     protected final JsonObject datapackMeta = new JsonObject();
     protected final boolean isFirstInstall;
     protected final boolean datapackEnabled;
     protected final String name;
 
     protected OraxenDatapack(String name, String description, int packFormat) {
-        this.datapackFolder = defaultWorld.getWorldFolder().toPath()
-                .resolve("datapacks/" + name).toFile();
+        // 延遲初始化，避免在 Folia 上過早訪問世界
+        this.datapackFolder = null;
 
         JsonObject data = new JsonObject();
         data.addProperty("description", description);
@@ -38,8 +73,17 @@ public abstract class OraxenDatapack {
         this.isFirstInstall = isFirstInstall();
         this.datapackEnabled = isDatapackEnabled();
     }
+    
+    protected void initializeDatapackFolder() {
+        if (datapackFolder == null) {
+            World world = getDefaultWorldSafe();
+            datapackFolder = world.getWorldFolder().toPath()
+                    .resolve("datapacks/" + name).toFile();
+        }
+    }
 
     protected void writeMCMeta() {
+        initializeDatapackFolder();
         try {
             File packMeta = datapackFolder.toPath().resolve("pack.mcmeta").toFile();
             packMeta.createNewFile();
@@ -50,6 +94,7 @@ public abstract class OraxenDatapack {
     }
 
     public void clearOldDataPack() {
+        initializeDatapackFolder();
         try {
             FileUtils.deleteDirectory(datapackFolder);
         } catch (IOException e) {
@@ -68,13 +113,14 @@ public abstract class OraxenDatapack {
     }
 
     protected boolean isDatapackEnabled() {
-        for (DataPack dataPack : Bukkit.getDataPackManager().getEnabledDataPacks(defaultWorld)) {
+        World world = getDefaultWorldSafe();
+        for (DataPack dataPack : Bukkit.getDataPackManager().getEnabledDataPacks(world)) {
             if (dataPack.getKey() == null)
                 continue;
             if (dataPack.getKey().equals(getDatapackKey()))
                 return true;
         }
-        for (DataPack dataPack : Bukkit.getDataPackManager().getDisabledDataPacks(defaultWorld)) {
+        for (DataPack dataPack : Bukkit.getDataPackManager().getDisabledDataPacks(world)) {
             if (dataPack.getKey() == null)
                 continue;
             if (dataPack.getKey().equals(getDatapackKey()))
