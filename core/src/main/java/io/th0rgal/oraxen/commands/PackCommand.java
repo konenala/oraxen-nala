@@ -6,9 +6,13 @@ import dev.jorel.commandapi.arguments.BooleanArgument;
 import dev.jorel.commandapi.arguments.EntitySelectorArgument;
 import dev.jorel.commandapi.arguments.TextArgument;
 import io.th0rgal.oraxen.OraxenPlugin;
+import io.th0rgal.oraxen.api.OraxenPack;
 import io.th0rgal.oraxen.config.Message;
 import io.th0rgal.oraxen.config.ResourcesManager;
+import io.th0rgal.oraxen.pack.dispatch.PackSender;
+import io.th0rgal.oraxen.pack.upload.UploadManager;
 import io.th0rgal.oraxen.utils.AdventureUtils;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.io.IOException;
@@ -35,8 +39,12 @@ public class PackCommand {
                 .withOptionalArguments(new EntitySelectorArgument.ManyPlayers("targets"))
                 .executes((sender, args) -> {
                     final Collection<Player> targets = resolveTargets(sender, args.getOptional("targets").orElse(null));
+                    final var packSender = extractPackSender(sender);
+                    if (packSender == null) {
+                        return;
+                    }
                     for (final Player target : targets)
-                        OraxenPlugin.get().getUploadManager().getSender().sendPack(target);
+                        packSender.sendPack(target);
                 });
     }
 
@@ -45,9 +53,14 @@ public class PackCommand {
                 .withOptionalArguments(new EntitySelectorArgument.ManyPlayers("targets"))
                 .executes((sender, args) -> {
                     final Collection<Player> targets = resolveTargets(sender, args.getOptional("targets").orElse(null));
+                    final String packUrl = extractPackUrl(); // 資源包連結，可能尚未生成
+                    if (packUrl == null || packUrl.isBlank()) {
+                        Message.PACK_NOT_UPLOADED.send(sender);
+                        return;
+                    }
+                    final var packResolver = AdventureUtils.tagResolver("pack_url", packUrl);
                     for (final Player target : targets)
-                        Message.COMMAND_JOIN_MESSAGE.send(target, AdventureUtils.tagResolver("pack_url",
-                                (OraxenPlugin.get().getUploadManager().getHostingProvider().getPackURL())));
+                        Message.COMMAND_JOIN_MESSAGE.send(target, packResolver);
                 });
     }
 
@@ -66,6 +79,44 @@ public class PackCommand {
             return Collections.singletonList(player);
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * 取得目前設定好的資源包 URL。
+     * @return 若尚未上傳則回傳 null
+     */
+    private String extractPackUrl() {
+        if (OraxenPlugin.get().getUploadManager() == null
+            || OraxenPlugin.get().getUploadManager().getHostingProvider() == null) {
+            return null;
+        }
+        return OraxenPlugin.get().getUploadManager().getHostingProvider().getPackURL();
+    }
+
+    /**
+     * 取得可用的 PackSender，若尚未初始化則嘗試觸發上傳並提示。
+     * @param sender 指令來源
+     * @return PackSender 或 null（已顯示提示訊息）
+     */
+    private PackSender extractPackSender(Object sender) {
+        CommandSender commandSender = sender instanceof CommandSender ? (CommandSender) sender : null;
+        UploadManager uploadManager = OraxenPlugin.get().getUploadManager();
+        if (uploadManager == null) {
+            OraxenPack.uploadPack();
+            if (commandSender != null) {
+                Message.PACK_UPLOADING.send(commandSender);
+            }
+            return null;
+        }
+        PackSender packSender = uploadManager.getSender();
+        if (packSender == null) {
+            if (commandSender != null) {
+                Message.PACK_NOT_UPLOADED.send(commandSender);
+            }
+            uploadManager.uploadAsyncAndSendToPlayers(OraxenPlugin.get().getResourcePack(), false, false);
+            return null;
+        }
+        return packSender;
     }
 
     private CommandAPICommand extractDefaultPackContent() {
