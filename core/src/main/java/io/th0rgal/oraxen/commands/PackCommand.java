@@ -13,6 +13,7 @@ import org.bukkit.entity.Player;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -33,8 +34,8 @@ public class PackCommand {
                 .withPermission("oraxen.command.pack.send")
                 .withOptionalArguments(new EntitySelectorArgument.ManyPlayers("targets"))
                 .executes((sender, args) -> {
-                    final Collection<Player> targets = (Collection<Player>) args.getOptional("targets").orElse(sender instanceof Player ? sender : null);
-                    if (targets != null) for (final Player target : targets)
+                    final Collection<Player> targets = resolveTargets(sender, args.getOptional("targets").orElse(null));
+                    for (final Player target : targets)
                         OraxenPlugin.get().getUploadManager().getSender().sendPack(target);
                 });
     }
@@ -43,11 +44,28 @@ public class PackCommand {
         return new CommandAPICommand("msg")
                 .withOptionalArguments(new EntitySelectorArgument.ManyPlayers("targets"))
                 .executes((sender, args) -> {
-                    final Collection<Player> targets = (Collection<Player>) args.getOptional("targets").orElse(sender instanceof Player ? sender : null);
-                    if (targets != null) for (final Player target : targets)
+                    final Collection<Player> targets = resolveTargets(sender, args.getOptional("targets").orElse(null));
+                    for (final Player target : targets)
                         Message.COMMAND_JOIN_MESSAGE.send(target, AdventureUtils.tagResolver("pack_url",
                                 (OraxenPlugin.get().getUploadManager().getHostingProvider().getPackURL())));
                 });
+    }
+
+    /**
+     * 將指令參數組合成合法的玩家集合。
+     * @param sender 指令來源
+     * @param rawTargets 可能為多名玩家的集合，或缺省
+     * @return 可安全迭代的玩家集合（若無目標則為空集合）
+     */
+    @SuppressWarnings("unchecked")
+    private Collection<Player> resolveTargets(Object sender, Object rawTargets) {
+        if (rawTargets instanceof Collection<?> collection) {
+            return (Collection<Player>) collection;
+        }
+        if (sender instanceof Player player) {
+            return Collections.singletonList(player);
+        }
+        return Collections.emptyList();
     }
 
     private CommandAPICommand extractDefaultPackContent() {
